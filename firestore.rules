@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Whitelist - anyone can read to check if email is allowed
+    match /whitelist/{email} {
+      allow read: if true;
+      allow write: if false; // Only admin can write via console
+    }
+    
+    // User data - only the authenticated user can access their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Calendar logs subcollection
+      match /calendar_logs/{logId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Watched recommendations subcollection
+      match /watched_recommendations/{recId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Watchlist subcollection (movies user wants to watch)
+      match /watchlist/{itemId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Skipped recommendations subcollection (temporary "Not Now" buffer)
+      match /skipped_recommendations/{skipId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // Saved vibes subcollection (user's saved taste patterns)
+      match /saved_vibes/{vibeId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Feedback inbox - authenticated users can create, but not read
+    match /feedback_inbox/{docId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if false; // Only admin via console
+    }
+  }
+}
