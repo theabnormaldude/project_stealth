@@ -1,11 +1,45 @@
-import { callGemini } from './gemini';
 import type { OrbitMovie, SwipeDirection } from '../stores/orbitStore';
 
 const TMDB_API_KEY =
   (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_TMDB_API_KEY) ||
   '087e509f6f93e629488a550f1451bb76';
 
+const GEMINI_API_KEY =
+  (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_GEMINI_API_KEY) ||
+  'AIzaSyBfGOJNCq4-Jj8bc0DiRfEwEOkjDwzgVDU';
+
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+
+// Use Gemini 2.0 Flash for ultra-fast orbit recommendations
+const callOrbitGemini = async (prompt: string): Promise<string | null> => {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7, // Lower temp for more consistent JSON
+            maxOutputTokens: 200, // Small output - just JSON
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Orbit Gemini API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (error) {
+    console.error('Orbit Gemini call failed:', error);
+    return null;
+  }
+};
 
 // Response schema from Gemini
 export interface OrbitResponse {
@@ -17,66 +51,18 @@ export interface OrbitResponse {
   tmdb_id?: number;
 }
 
-// Prompt templates for each navigation vector
-const VIBE_PROMPT = `You are the Viewfinder Engine. Given a movie, recommend the single best "next movie" based on VIBE MATCH.
+// Compact prompts for faster Gemini Flash responses
+const VIBE_PROMPT = `Movie: "{title}" ({year}), {genres}, dir: {director}
+Recommend 1 similar vibe movie. Output RAW JSON only:
+{"next_movie_title":"Title","year":"YYYY","dominant_hex_color":"#HEX","connection_reason":"max 8 words","similarity_score":85}`;
 
-Current Movie: "{title}" ({year})
-Genres: {genres}
-Director: {director}
+const AESTHETIC_PROMPT = `Movie: "{title}" ({year}), cinematography by {cinematographer}
+Recommend 1 visually similar movie (same color palette/lighting). Output RAW JSON only:
+{"next_movie_title":"Title","year":"YYYY","dominant_hex_color":"#HEX","connection_reason":"visual connection","similarity_score":85}`;
 
-VIBE MATCH means: Match based on general similarity, genre, era, mood, and spiritual successor quality. Find a movie that "feels" the same.
-
-CRITICAL RULES:
-1. Output MUST be raw JSON only - no markdown, no backticks, no explanation
-2. The "dominant_hex_color" MUST be extracted from the recommended movie's iconic theatrical poster
-3. "connection_reason" MUST be max 10 words
-4. DO NOT recommend the same movie or obvious sequels
-
-Output this exact JSON structure:
-{"next_movie_title": "Movie Title", "year": "YYYY", "dominant_hex_color": "#HEXCODE", "connection_reason": "Brief reason", "similarity_score": 85}`;
-
-const AESTHETIC_PROMPT = `You are the Viewfinder Engine. Given a movie, recommend the single best "next movie" based on AESTHETIC MATCH.
-
-Current Movie: "{title}" ({year})
-Cinematographer: {cinematographer}
-Known for: {visual_style}
-
-AESTHETIC MATCH means: IGNORE PLOT ENTIRELY. Match based on:
-- Color palette (neon, muted, saturated, monochrome)
-- Lighting style (high contrast, soft, harsh shadows)
-- Cinematography approach (long takes, handheld, symmetrical)
-- Visual mood and texture
-
-CRITICAL RULES:
-1. Output MUST be raw JSON only - no markdown, no backticks, no explanation
-2. The "dominant_hex_color" MUST accurately reflect the recommended movie's dominant poster color
-3. "connection_reason" MUST reference visual elements specifically
-4. DO NOT recommend the same movie
-
-Output this exact JSON structure:
-{"next_movie_title": "Movie Title", "year": "YYYY", "dominant_hex_color": "#HEXCODE", "connection_reason": "Same neon palette", "similarity_score": 85}`;
-
-const AUTEUR_PROMPT = `You are the Viewfinder Engine. Given a movie, recommend the single best "next movie" based on AUTEUR MATCH.
-
-Current Movie: "{title}" ({year})
-Director: {director}
-Writer: {writer}
-Genre: {genres}
-
-AUTEUR MATCH means: IGNORE GENRE. Match based on:
-- Same director's other work
-- Same screenwriter's signature style
-- Similar narrative structure (nonlinear, ensemble, character study)
-- Thematic DNA (existentialism, identity, power dynamics)
-
-CRITICAL RULES:
-1. Output MUST be raw JSON only - no markdown, no backticks, no explanation
-2. The "dominant_hex_color" MUST be from the recommended movie's theatrical poster
-3. "connection_reason" MUST mention the structural/authorial connection
-4. DO NOT recommend the same movie or direct sequels
-
-Output this exact JSON structure:
-{"next_movie_title": "Movie Title", "year": "YYYY", "dominant_hex_color": "#HEXCODE", "connection_reason": "Same director's masterwork", "similarity_score": 85}`;
+const AUTEUR_PROMPT = `Movie: "{title}" ({year}), dir: {director}, writer: {writer}
+Recommend 1 movie by same director OR same narrative style. Output RAW JSON only:
+{"next_movie_title":"Title","year":"YYYY","dominant_hex_color":"#HEX","connection_reason":"auteur connection","similarity_score":85}`;
 
 // Build prompt based on direction
 const buildPrompt = (
@@ -234,7 +220,7 @@ export const getNextMovie = async (
   
   const prompt = buildPrompt(currentMovie, direction, extraContext);
   
-  const response = await callGemini(prompt);
+  const response = await callOrbitGemini(prompt);
   if (!response) {
     console.error('Gemini returned no response');
     return null;
