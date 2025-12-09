@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, X, ArrowLeft, Loader2 } from 'lucide-react';
+import { Search, X, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
 import { useMovieSearch, type SearchResult } from '../hooks/useMovieSearch';
 import SearchResultCard from '../components/SearchResultCard';
 import PatternAssistant from '../components/PatternAssistant';
@@ -12,6 +12,7 @@ export default function DiscoverScreen() {
   const preSelectedDate = searchParams.get('date');
   
   const [query, setQuery] = useState('');
+  const [isPatternPanelOpen, setIsPatternPanelOpen] = useState(true);
   const { results, isSearching, error, searchMovies, clearResults } = useMovieSearch();
   const { 
     clickedMovies, 
@@ -84,26 +85,54 @@ export default function DiscoverScreen() {
 
   const showPatternAssistant = clickedMovies.length >= 3 && patternInsight;
 
+  useEffect(() => {
+    if (!showPatternAssistant) {
+      setIsPatternPanelOpen(true);
+    }
+  }, [showPatternAssistant]);
+
+  const contentPadding = showPatternAssistant && isPatternPanelOpen ? 'pb-40' : 'pb-12';
+
   return (
     <div className="min-h-screen bg-black text-white">
+      {showPatternAssistant && isPatternPanelOpen && (
+        <div className="fixed bottom-24 left-0 right-0 px-4 sm:px-6 z-30 pointer-events-none">
+          <div className="relative max-w-md mx-auto pointer-events-auto drop-shadow-2xl">
+            <button
+              aria-label="Hide pattern insights"
+              onClick={() => setIsPatternPanelOpen(false)}
+              className="absolute -top-2 -right-2 p-1 rounded-full bg-black/70 border border-white/10 text-gray-400 hover:text-white hover:bg-black/80 transition-colors"
+            >
+              <X size={14} />
+            </button>
+            <PatternAssistant
+              insight={patternInsight}
+              isAnalyzing={isAnalyzing}
+              onShowMore={handleShowMore}
+              onSaveVibe={handleSaveVibe}
+              isLoadingMore={isLoadingMore}
+              isSavingVibe={isSavingVibe}
+              vibeSaved={vibeSaved}
+              movieCount={clickedMovies.length}
+              showMoreResults={showMoreResults}
+              onMovieClick={(movie) => navigate(`/movie/${movie.id}?type=movie`)}
+            />
+          </div>
+        </div>
+      )}
+
+      {showPatternAssistant && !isPatternPanelOpen && (
+        <button
+          onClick={() => setIsPatternPanelOpen(true)}
+          className="fixed bottom-6 right-4 z-30 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg focus:outline-none focus:ring-2 focus:ring-purple-300"
+        >
+          <Sparkles size={16} />
+          Show pattern vibe
+        </button>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-20 bg-black/95 backdrop-blur-sm border-b border-gray-800">
-        {/* Pattern Assistant - shows above search when triggered */}
-        {showPatternAssistant && (
-          <PatternAssistant
-            insight={patternInsight}
-            isAnalyzing={isAnalyzing}
-            onShowMore={handleShowMore}
-            onSaveVibe={handleSaveVibe}
-            isLoadingMore={isLoadingMore}
-            isSavingVibe={isSavingVibe}
-            vibeSaved={vibeSaved}
-            movieCount={clickedMovies.length}
-            showMoreResults={showMoreResults}
-            onMovieClick={(movie) => navigate(`/movie/${movie.id}?type=movie`)}
-          />
-        )}
-        
         {/* Search Bar */}
         <div className="flex items-center gap-3 p-4">
           <button
@@ -149,7 +178,7 @@ export default function DiscoverScreen() {
       </div>
 
       {/* Content */}
-      <div className="p-4">
+      <div className={`p-4 ${contentPadding}`}>
         {/* Loading State */}
         {isSearching && (
           <div className="flex items-center justify-center py-12">

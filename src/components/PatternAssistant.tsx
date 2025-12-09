@@ -26,7 +26,7 @@ export default function PatternAssistant({
   onMovieClick,
 }: PatternAssistantProps) {
   return (
-    <div className="bg-gradient-to-r from-purple-900/40 via-blue-900/40 to-purple-900/40 border-b border-purple-500/30">
+    <div className="bg-gradient-to-r from-[#1a0a2e] via-[#0f1a3d] to-[#1a0a2e] border-b border-purple-500/50 rounded-xl">
       <div className="p-4">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Star, Play, ChevronDown, ChevronUp, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Star, Play, ChevronDown, ChevronUp, ExternalLink, Loader2, Orbit } from 'lucide-react';
 import { useMovieDetails } from '../hooks/useMovieDetails';
 import { useSimilarVibes } from '../hooks/useSimilarVibes';
 import { useWatchlist } from '../hooks/useWatchlist';
@@ -88,11 +88,18 @@ export default function MovieDetailScreen() {
 
     setIsAddingToCalendar(true);
     try {
+      // Force the saved timestamp to land in the middle of the selected day
+      // so timezone conversions don't shift it to the previous date.
+      const normalizedDate = new Date(`${selectedDate}T12:00:00`);
+      const safeDate = Number.isNaN(normalizedDate.getTime())
+        ? new Date()
+        : normalizedDate;
+
       await addEvent({
         movieId: details.id,
         title: details.title,
         poster: buildImageUrl(details.posterPath) || '',
-        date: selectedDate,
+        date: safeDate.toISOString(),
         inviteFriend: false,
         backdrop: buildImageUrl(details.backdropPath, 'w780') || undefined,
         mediaType: details.mediaType,
@@ -186,7 +193,7 @@ export default function MovieDetailScreen() {
     <div className="min-h-screen bg-black text-white">
       {/* Pattern Assistant - sticky at top when triggered */}
       {showPatternAssistant && (
-        <div className="sticky top-0 z-30">
+        <div className="sticky top-0 z-30 bg-black">
           <PatternAssistant
             insight={patternInsight}
             isAnalyzing={isAnalyzing}
@@ -313,6 +320,18 @@ export default function MovieDetailScreen() {
           isAddingToWatchlist={isAddingToWatchlist}
           isMarkingSeen={isMarkingSeen}
         />
+
+        {/* Enter Orbit - Viewfinder Selects */}
+        {mediaType === 'movie' && (
+          <button
+            onClick={() => navigate(`/orbit/${details.id}`)}
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:via-indigo-500 hover:to-blue-500 text-white font-semibold text-lg shadow-lg shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Orbit className="w-5 h-5" />
+            <span>Enter Orbit</span>
+            <span className="text-white/60 text-sm font-normal">• Discover Similar Films</span>
+          </button>
+        )}
 
         {/* Date Picker Modal */}
         {showDatePicker && (

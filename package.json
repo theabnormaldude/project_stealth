@@ -13,6 +13,7 @@
   "dependencies": {
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",
+    "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^7.4.4",
     "@google/generative-ai": "^0.24.1",
     "@react-three/drei": "^10.7.7",

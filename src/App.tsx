@@ -13,6 +13,7 @@ import CleanupIMDBCalendar from './components/CleanupIMDBCalendar';
 import DiscoverScreen from './screens/DiscoverScreen';
 import MovieDetailScreen from './screens/MovieDetailScreen';
 import SavedVibesScreen from './screens/SavedVibesScreen';
+import OrbitScreen from './screens/OrbitScreen';
 
 export default function App() {
   return (
@@ -77,6 +78,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <SavedVibesScreen />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orbit/:id"
+            element={
+              <ProtectedRoute>
+                <OrbitScreen />
               </ProtectedRoute>
             }
           />
