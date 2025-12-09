@@ -162,34 +162,25 @@ export default function OrbitScreen() {
     // Haptic feedback for swipe
     orbitHaptics.swipeComplete();
     
-    setTransitioning(true);
-    setPendingDirection(direction);
-    
-    // Check if we have prefetched data
+    // Check if we have prefetched data FIRST
     const prefetchKey = direction === 'left' ? 'vibe' : direction === 'down' ? 'aesthetic' : 'auteur';
     const prefetched = prefetchedMoves[prefetchKey];
     
-    let result: { movie: OrbitMovie; connectionReason: string; similarityScore: number } | null = null;
-    
     if (prefetched) {
-      // Use prefetched data - instant transition!
-      result = prefetched;
-    } else {
-      // Fetch new recommendation (fallback if prefetch didn't complete)
-      result = await getNextMovie(currentMovie, direction, movieContext || undefined);
-    }
-    
-    if (result) {
-      // Set transition color before navigating
-      setTransitionColor(result.movie.dominantHex);
+      // INSTANT transition with prefetched data - no delay!
+      setTransitionColor(prefetched.movie.dominantHex);
+      setTransitioning(true);
+      setPendingDirection(direction);
       
-      // Brief delay for transition effect
-      setTimeout(() => {
-        navigateTo(result!.movie, direction, result!.connectionReason, result!.similarityScore);
+      // Minimal delay just for visual polish (50ms)
+      requestAnimationFrame(() => {
+        navigateTo(prefetched.movie, direction, prefetched.connectionReason, prefetched.similarityScore);
+        setTransitioning(false);
+        setPendingDirection(null);
         
-        // Pre-fetch next moves for new movie
-        prefetchNextMoves(result!.movie, {
-          cinematographer: result!.movie.cinematographer,
+        // Pre-fetch next moves for new movie immediately
+        prefetchNextMoves(prefetched.movie, {
+          cinematographer: prefetched.movie.cinematographer,
         }).then((moves) => {
           setPrefetchedMoves({
             vibe: moves.vibe || null,
@@ -197,11 +188,37 @@ export default function OrbitScreen() {
             auteur: moves.auteur || null,
           });
         });
-      }, 300);
+      });
     } else {
-      setTransitioning(false);
-      setPendingDirection(null);
-      // Could show error toast here
+      // No prefetch available - show loading state and fetch
+      setTransitioning(true);
+      setPendingDirection(direction);
+      
+      const result = await getNextMovie(currentMovie, direction, movieContext || undefined);
+      
+      if (result) {
+        setTransitionColor(result.movie.dominantHex);
+        
+        requestAnimationFrame(() => {
+          navigateTo(result.movie, direction, result.connectionReason, result.similarityScore);
+          setTransitioning(false);
+          setPendingDirection(null);
+          
+          // Pre-fetch next moves for new movie
+          prefetchNextMoves(result.movie, {
+            cinematographer: result.movie.cinematographer,
+          }).then((moves) => {
+            setPrefetchedMoves({
+              vibe: moves.vibe || null,
+              aesthetic: moves.aesthetic || null,
+              auteur: moves.auteur || null,
+            });
+          });
+        });
+      } else {
+        setTransitioning(false);
+        setPendingDirection(null);
+      }
     }
   }, [currentMovie, isTransitioning, prefetchedMoves, movieContext, goBack, setTransitioning, setPendingDirection, navigateTo, setPrefetchedMoves]);
 
@@ -304,9 +321,9 @@ export default function OrbitScreen() {
         showOnboarding={showOnboarding}
       />
 
-      {/* Loading indicator during swipe */}
+      {/* Loading indicator during swipe - only show if actually waiting */}
       <AnimatePresence>
-        {isTransitioning && (
+        {isTransitioning && !prefetchedMoves[pendingDirection === 'left' ? 'vibe' : pendingDirection === 'down' ? 'aesthetic' : 'auteur'] && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -320,6 +337,42 @@ export default function OrbitScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Swipe direction ready indicators */}
+      {!isTransitioning && !showConstellation && (
+        <div className="absolute inset-0 pointer-events-none z-10">
+          {/* Up indicator (Auteur) */}
+          {prefetchedMoves.auteur && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              className="absolute top-20 left-1/2 -translate-x-1/2"
+            >
+              <div className="text-white/40 text-xs uppercase tracking-wider">↑ Auteur</div>
+            </motion.div>
+          )}
+          {/* Down indicator (Aesthetic) */}
+          {prefetchedMoves.aesthetic && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              className="absolute bottom-32 left-1/2 -translate-x-1/2"
+            >
+              <div className="text-white/40 text-xs uppercase tracking-wider">↓ Aesthetic</div>
+            </motion.div>
+          )}
+          {/* Left indicator (Vibe) */}
+          {prefetchedMoves.vibe && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              className="absolute left-4 top-1/2 -translate-y-1/2"
+            >
+              <div className="text-white/40 text-xs uppercase tracking-wider rotate-[-90deg]">← Vibe</div>
+            </motion.div>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
